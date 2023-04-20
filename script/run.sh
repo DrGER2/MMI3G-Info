@@ -42,7 +42,7 @@ MUSWVER="$(sed -n 's/^version = //p' /etc/version/MainUnit-version.txt)"
 echo; echo "[INFO] MU software version: $MUSWVER"
 
 # Get installed HDD info from syslog:
-HDDINFO="$(sloginfo -m 19 -s 2|grep 'eide_display_devices.*tid 1'|
+HDDINFO="$(sloginfo -m 19 -s 2 | grep 'eide_display_devices.*tid 1' |
   sed 's/^.*mdl //;s/ tid 1.*$//')"
 [ -z "$HDDINFO" ] && HDDINFO="n/a"
 echo; echo "[INFO] Installed HDD: $HDDINFO"
@@ -141,27 +141,13 @@ if [ "$INFO_NETWORK" = Y ]; then
   echo; echo "[INFO] ifconfig -a"
   ifconfig -a
 
-  if [ "$MUVER" = "MMI3GP" ]; then
-    echo; echo "[INFO] ifconfig mam0"
-    ifconfig -v mam0
-
-    echo; echo "[INFO] ifconfig en5"
-    ifconfig -v en5
-
-    echo; echo "[INFO] ifconfig ppp0"
-    ifconfig -v ppp0
-
-    echo; echo "[INFO] ifconfig uap0"
-    ifconfig -v uap0
-
-    echo; echo "[INFO] sysctl net.inet.ip.forwarding"
-    sysctl net.inet.ip.forwarding
-  fi # MMI3GP
-
   echo; echo "[INFO] netstat -n -r"
   netstat -v -n -r
 
   if [ "$MUVER" = "MMI3GP" ]; then
+    echo; echo "[INFO] sysctl net.inet.ip.forwarding"
+    sysctl net.inet.ip.forwarding
+
     echo; echo "[INFO] pfctl -s Interfaces"
     pfctl -vv -s Interfaces
 
