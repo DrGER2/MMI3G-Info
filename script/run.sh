@@ -16,14 +16,14 @@ INFO_SSS=Y
 INFO_NETWORK=Y
 INFO_SYSLOG=Y
 
-# Common functions
+### Common functions ###
 xlister(){
   echo; echo "[INFO] List $1 :"
   ls -ovR $1
 }
 
-# Script startup:
-xversion="v230419"
+### Script startup ###
+xversion="v230501"
 showScreen ${SDLIB}/mmi3ginfo-0.png
 touch ${SDPATH}/.started
 xlogfile=${SDPATH}/mmi3ginfo-$(getTime).log
@@ -31,38 +31,75 @@ exec > ${xlogfile} 2>&1
 umask 022
 echo "[INFO] Start: $(date); Timestamp: $(getTime)"
 
-# 20210325 grafe; QNX commands here:
+### 20210325 drger; QNX shell commands here ###
 echo; echo "[INFO] MMI Info Dump: mmi3ginfo3-$xversion"
 
-# Get Train and MainUnit software version:
-[ "$MUVER" = "MMI3G" ] && SWTRAIN="$(sloginfo -m 10000 -s 5 |
+### Get Train and MainUnit software version ###
+[ "$MUVER" = MMI3G ] && SWTRAIN="$(sloginfo -m 10000 -s 5 |
   sed -n 's/^.* +++ Train //p' | sed -n '1p')"
 echo; echo "[INFO] MU train name: $SWTRAIN"
 MUSWVER="$(sed -n 's/^version = //p' /etc/version/MainUnit-version.txt)"
 echo; echo "[INFO] MU software version: $MUSWVER"
 
-# Get installed HDD info from syslog:
+### 3GP HMI Info ###
+if [ "$MUVER" = MMI3GP ]; then
+  echo; echo "[INFO] HMI type: $(cat /etc/hmi_type.txt | sed 's/"//g')"
+  echo "[INFO] HMI region: $(cat /etc/hmi_country.txt | sed 's/"//g')"
+fi
+
+### Get hwSample version ###
+MUHWSAMPLE="n/a"
+[ -f /etc/hwSample ] && MUHWSAMPLE="$(cat /etc/hwSample)"
+echo; echo "[INFO] MU hwSample: $MUHWSAMPLE"
+
+### Get installed HDD info from syslog ###
 HDDINFO="$(sloginfo -m 19 -s 2 | grep 'eide_display_devices.*tid 1' |
   sed 's/^.*mdl //;s/ tid 1.*$//')"
 [ -z "$HDDINFO" ] && HDDINFO="n/a"
 echo; echo "[INFO] Installed HDD: $HDDINFO"
 
-# Get QNX system info:
+### Get navdb info ###
+if [ -f /mnt/nav/db/DBInfo.txt ]; then
+  DBPKG="$(ls /mnt/nav/db/pkgdb/*.pkg)"
+  DBINFO="$(sed -n 's/^description="//p' $DBPKG | sed 's/".*$//')"
+  echo; echo "[INFO] HDD navigation database: $DBINFO"
+  FSCSPEC="$(sed -n 's/^userflags=fsc@//p' $DBPKG | sed 's/;region.*$//')"
+  echo "[INFO] Nav database release activation file: 000${FSCSPEC}.fsc"
+  if [ -f /HBpersistence/FSC/000${FSCSPEC}.fsc ]; then
+    echo "[INFO] Found nav database release FSC file."
+  else
+    echo "[INFO] Nav database release FSC file not found !"
+  fi # FSCSPEC
+else
+  echo; echo "[INFO] No navigation database found on HDD !"
+fi # navdb info
+
+### Get Gracenote info ###
+GNDBF=/mnt/gracenode/db/gracenote.txt
+if [ -f "$GNDBF" ]; then
+  GNPN="$(sed -n 's/^PartNumber=//p' $GNDBF | sed 's/$//')"
+  echo; echo "[INFO] Gracenote CD-Database part number: $GNPN"
+  GNSVN="$(sed -n 's/^SoftwareVersionNumber=//p' $GNDBF | sed 's/$//')"
+  echo "[INFO] Gracenote CD-Database version: $GNSVN"
+else
+  echo; echo "[INFO] No Gracenote database found on HDD !"
+fi # gracenote info
+
+### Get QNX system info ###
 echo; echo "[INFO] uname -a"
 uname -a
 
 if [ "${INFO_PROCESS}" = Y ]; then
-  # List running processes
   echo; echo "[INFO] Running processes (pidin -f aenA)"
   pidin -f aenA
+else
+  echo; echo "[INFO] INFO_PROCESS = N"
 fi # INFO_PROCESS
 
 if [ "${INFO_MOUNT}" = Y ]; then
-  # List mounted filesystems
   echo; echo "[INFO] Mounted filesystems (mount):"
   mount
 
-  # List free filesystem space
   echo; echo "[INFO] Free space (df -k -P):"
   df -k -P
 
@@ -71,6 +108,8 @@ if [ "${INFO_MOUNT}" = Y ]; then
 
   echo; echo "[INFO] ls /mnt"
   ls -o /mnt/
+else
+  echo; echo "[INFO] INFO_MOUNT = N"
 fi # INFO_MOUNT
 
 if [ "$INFO_FLASH" = Y ]; then
@@ -81,6 +120,8 @@ if [ "$INFO_FLASH" = Y ]; then
   xlister /lib/
   xlister /sbin/
   xlister /usr/
+else
+  echo; echo "[INFO] INFO_FLASH = N"
 fi # INFO_FLASH
 
 if [ "$INFO_FLASH2" = Y ]; then
@@ -94,6 +135,8 @@ if [ "$INFO_FLASH2" = Y ]; then
   xlister /tmp/
   xlister /HBpersistence/
   xlister /proc/
+else
+  echo; echo "[INFO] INFO_FLASH2 = N"
 fi # INFO_FLASH2
 
 if [ "$INFO_NAV" = Y ]; then
@@ -106,9 +149,11 @@ if [ "$INFO_NAV" = Y ]; then
   else
     echo; echo "[INFO] Cannot find file acios_db.ini"
   fi
+else
+  echo; echo "[INFO] INFO_NAV = N"
 fi # INFO_NAV
 
-if [ "$MUVER" = "MMI3GP" ]; then
+if [ "$MUVER" = MMI3GP ]; then
 if [ "$INFO_GEMMI" = Y ]; then
   xlister /mnt/img-cache
   if [ -f /mnt/img-cache/gemmi/.config/Google/GoogleEarthPlus.conf ]; then
@@ -118,23 +163,23 @@ if [ "$INFO_GEMMI" = Y ]; then
   else
     echo; echo "[INFO] Cannot find file GoogleEarthPlus.conf"
   fi
+else
+  echo; echo "[INFO] INFO_GEMMI = N"
 fi # INFO_GEMMI
 fi # MMI3GP
 
 if [ "$INFO_MEDIA" = Y ]; then
   xlister /mnt/gracenode
-  if [ -f /mnt/gracenode/db/gracenote.txt ]; then
-    echo; echo "[INFO] Gracenote version info:"
-    cat /mnt/gracenode/db/gracenote.txt
-  fi
   xlister /mnt/mediadisk
-  if [ "$MUVER" = "MMI3GP" ]; then
-    xlister /mnt/pv-cache
-  fi # MMI3GP
+  [ "$MUVER" = MMI3GP ] && xlister /mnt/pv-cache
+else
+  echo; echo "[INFO] INFO_MEDIA = N"
 fi # INFO_MEDIA
 
 if [ "$INFO_SSS" = Y ]; then
   xlister /mnt/sss
+else
+  echo; echo "[INFO] INFO_SSS = N"
 fi # INFO_SSS
 
 if [ "$INFO_NETWORK" = Y ]; then
@@ -144,7 +189,7 @@ if [ "$INFO_NETWORK" = Y ]; then
   echo; echo "[INFO] netstat -n -r"
   netstat -v -n -r
 
-  if [ "$MUVER" = "MMI3GP" ]; then
+  if [ "$MUVER" = MMI3GP ]; then
     echo; echo "[INFO] sysctl net.inet.ip.forwarding"
     sysctl net.inet.ip.forwarding
 
@@ -154,14 +199,18 @@ if [ "$INFO_NETWORK" = Y ]; then
     echo; echo "[INFO] pfctl -s all"
     pfctl -v -s all
   fi # MMI3GP
+else
+  echo; echo "[INFO] INFO_NETWORK = N"
 fi # INFO_NETWORK
 
 if [ "$INFO_SYSLOG" = Y ]; then
   echo; echo "[INFO] sloginfo:"
   sloginfo
+else
+  echo; echo "[INFO] INFO_SYSLOG = N"
 fi # INFO_SYSLOG
 
-# Script cleanup:
+### Script cleanup ###
 echo; echo "[INFO] End: $(date); Timestamp: $(getTime)"
 showScreen ${SDLIB}/mmi3ginfo-1.png
 rm -f ${SDPATH}/.started
