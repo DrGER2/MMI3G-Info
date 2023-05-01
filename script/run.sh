@@ -59,10 +59,12 @@ HDDINFO="$(sloginfo -m 19 -s 2 | grep 'eide_display_devices.*tid 1' |
 echo; echo "[INFO] Installed HDD: $HDDINFO"
 
 ### Get navdb info ###
-if [ -f /mnt/nav/db/DBInfo.txt ]; then
+DBINFO=/mnt/nav/db/DBInfo.txt
+if [ -f "$DBINFO" ]; then
   DBPKG="$(ls /mnt/nav/db/pkgdb/*.pkg)"
-  DBINFO="$(sed -n 's/^description="//p' $DBPKG | sed 's/".*$//')"
-  echo; echo "[INFO] HDD navigation database: $DBINFO"
+  DBDESC="$(sed -n 's/^description="//p' $DBPKG | sed 's/".*$//')"
+  DBREL="$(sed -n 's/^SystemName=[^ ]* //p' $DBINFO | sed 's/".*$//')"
+  echo; echo "[INFO] HDD navigation database info: $DBDESC $DBREL"
   FSCSPEC="$(sed -n 's/^userflags=fsc@//p' $DBPKG | sed 's/;region.*$//')"
   echo "[INFO] Nav database release activation file: 000${FSCSPEC}.fsc"
   if [ -f /HBpersistence/FSC/000${FSCSPEC}.fsc ]; then
