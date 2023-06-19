@@ -10,10 +10,10 @@ INFO_MOUNT=Y
 INFO_FLASH=Y
 INFO_FLASH2=Y
 INFO_NAV=Y
-INFO_GEMMI=Y
-INFO_MEDIA=Y
-INFO_SSS=Y
-INFO_NETWORK=Y
+INFO_GEMMI=N
+INFO_MEDIA=N
+INFO_SSS=N
+INFO_NETWORK=N
 INFO_SYSLOG=Y
 
 ### Common functions ###
@@ -23,7 +23,7 @@ xlister(){
 }
 
 ### Script startup ###
-xversion="v230501"
+xversion="v230619"
 showScreen ${SDLIB}/mmi3ginfo-0.png
 touch ${SDPATH}/.started
 xlogfile=${SDPATH}/mmi3ginfo-$(getTime).log
@@ -31,37 +31,44 @@ exec > ${xlogfile} 2>&1
 umask 022
 echo "[INFO] Start: $(date); Timestamp: $(getTime)"
 
-### 20210325 drger; QNX shell commands here ###
-echo; echo "[INFO] MMI Info Dump: mmi3ginfo3-$xversion"
+### 20210325 drger; MMI3G Summary ###
+echo "[INFO] MMI Info Dump: mmi3ginfo3-$xversion"
 
 ### Get Train and MainUnit software version ###
 [ "$MUVER" = MMI3G ] && SWTRAIN="$(sloginfo -m 10000 -s 5 |
   sed -n 's/^.* +++ Train //p' | sed -n '1p')"
 echo; echo "[INFO] MU train name: $SWTRAIN"
 MUSWVER="$(sed -n 's/^version = //p' /etc/version/MainUnit-version.txt)"
-echo; echo "[INFO] MU software version: $MUSWVER"
+echo "[INFO] MU software version: $MUSWVER"
 
 ### 3GP HMI Info ###
 if [ "$MUVER" = MMI3GP ]; then
-  echo; echo "[INFO] HMI type: $(cat /etc/hmi_type.txt | sed 's/"//g')"
+  echo "[INFO] HMI type: $(cat /etc/hmi_type.txt | sed 's/"//g')"
   echo "[INFO] HMI region: $(cat /etc/hmi_country.txt | sed 's/"//g')"
 fi
 
 ### Get hwSample version ###
 MUHWSAMPLE="n/a"
 [ -f /etc/hwSample ] && MUHWSAMPLE="$(cat /etc/hwSample)"
-echo; echo "[INFO] MU hwSample: $MUHWSAMPLE"
+echo "[INFO] MU hwSample: $MUHWSAMPLE"
 
-### Get installed HDD info from syslog ###
+### Get installed HDD info from syslog and fdisk ###
 HDDINFO="$(sloginfo -m 19 -s 2 | grep 'eide_display_devices.*tid 1' |
   sed 's/^.*mdl //;s/ tid 1.*$//')"
 [ -z "$HDDINFO" ] && HDDINFO="n/a"
-echo; echo "[INFO] Installed HDD: $HDDINFO"
+echo "[INFO] Installed HDD: $HDDINFO"
+HDDC="$(fdisk /dev/hd0 query -T)"
+echo "[INFO] HDD reported cylinders: $HDDC"
+HDDH="$(fdisk /dev/hd0 info | sed -n 's,^    Heads            : ,,p')"
+HDDS="$(fdisk /dev/hd0 info | sed -n 's,^    Sectors/Track    : ,,p')"
+echo "[INFO] HDD capacity (sectors): $(($HDDC * $HDDH * $HDDS))"
+echo "[INFO] HDD partition table:"
+fdisk /dev/hd0 show
 
 ### Get navdb info ###
 DBINFO=/mnt/nav/db/DBInfo.txt
 if [ -f "$DBINFO" ]; then
-  DBPKG="$(ls /mnt/nav/db/pkgdb/*.pkg)"
+  DBPKG="$(ls /mnt/nav/db/pkgdb/*.pkg | sed -n 1p)"
   DBDESC="$(sed -n 's/^description="//p' $DBPKG | sed 's/".*$//')"
   DBREL="$(sed -n 's/^SystemName=[^ ]* //p' $DBINFO | sed 's/".*$//')"
   echo; echo "[INFO] HDD navigation database info: $DBDESC $DBREL"
