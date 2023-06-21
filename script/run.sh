@@ -23,7 +23,7 @@ xlister(){
 }
 
 ### Script startup ###
-xversion="v230619"
+xversion="v230621"
 showScreen ${SDLIB}/mmi3ginfo-0.png
 touch ${SDPATH}/.started
 xlogfile=${SDPATH}/mmi3ginfo-$(getTime).log
@@ -32,20 +32,21 @@ umask 022
 echo "[INFO] Start: $(date); Timestamp: $(getTime)"
 
 ### 20210325 drger; MMI3G Summary ###
-echo "[INFO] MMI Info Dump: mmi3ginfo3-$xversion"
+echo "[INFO] MMI3G Info Dump: mmi3ginfo3-$xversion"
 
 ### Get Train and MainUnit software version ###
 [ "$MUVER" = MMI3G ] && SWTRAIN="$(sloginfo -m 10000 -s 5 |
-  sed -n 's/^.* +++ Train //p' | sed -n '1p')"
+  sed -n 's/^.* +++ Train //p' | sed -n 1p)"
 echo; echo "[INFO] MU train name: $SWTRAIN"
 MUSWVER="$(sed -n 's/^version = //p' /etc/version/MainUnit-version.txt)"
 echo "[INFO] MU software version: $MUSWVER"
 
-### 3GP HMI Info ###
-if [ "$MUVER" = MMI3GP ]; then
-  echo "[INFO] HMI type: $(cat /etc/hmi_type.txt | sed 's/"//g')"
-  echo "[INFO] HMI region: $(cat /etc/hmi_country.txt | sed 's/"//g')"
-fi
+### MainUnit Variant ###
+MUVAR="9308"
+[ "$MUVER" = MMI3GP ] && \
+  MUVAR="$(sed -n 's,^<VariantName>,,;s,</VariantName>$,,p' \
+           /etc/mmi3g-srv-starter.cfg)"
+echo "[INFO] MU variant: $MUVAR"
 
 ### Get hwSample version ###
 MUHWSAMPLE="n/a"
@@ -56,12 +57,12 @@ echo "[INFO] MU hwSample: $MUHWSAMPLE"
 HDDINFO="$(sloginfo -m 19 -s 2 | grep 'eide_display_devices.*tid 1' |
   sed 's/^.*mdl //;s/ tid 1.*$//')"
 [ -z "$HDDINFO" ] && HDDINFO="n/a"
-echo "[INFO] Installed HDD: $HDDINFO"
+echo; echo "[INFO] Installed HDD: $HDDINFO"
 HDDC="$(fdisk /dev/hd0 query -T)"
 echo "[INFO] HDD reported cylinders: $HDDC"
 HDDH="$(fdisk /dev/hd0 info | sed -n 's,^    Heads            : ,,p')"
 HDDS="$(fdisk /dev/hd0 info | sed -n 's,^    Sectors/Track    : ,,p')"
-echo "[INFO] HDD capacity (sectors): $(($HDDC * $HDDH * $HDDS))"
+echo "[INFO] HDD capacity (512 byte sectors): $(($HDDC * $HDDH * $HDDS))"
 echo "[INFO] HDD partition table:"
 fdisk /dev/hd0 show
 
@@ -93,6 +94,12 @@ if [ -f "$GNDBF" ]; then
 else
   echo; echo "[INFO] No Gracenote database found on HDD !"
 fi # gracenote info
+
+### 3GP HMI Info ###
+if [ "$MUVER" = MMI3GP ]; then
+  echo; echo "[INFO] HMI type: $(cat /etc/hmi_type.txt | sed 's/"//g')"
+  echo "[INFO] HMI region: $(cat /etc/hmi_country.txt | sed 's/"//g')"
+fi
 
 ### Get QNX system info ###
 echo; echo "[INFO] uname -a"
