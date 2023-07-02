@@ -80,6 +80,19 @@ if [ -f "$DBINFO" ]; then
   else
     echo "[INFO] Nav database release FSC file not found !"
   fi # FSCSPEC
+
+  if [ -n "$(pidin -f an | grep vdev-logvolmgr)" ]; then
+    echo "[INFO] H-B navdb activation: enabled !"
+  else
+    echo "[INFO] H-B navdb activation: disabled."
+  fi
+  if [ -n "$(grep 'acios_db.ini' /usr/bin/manage_cd.sh)" ]; then
+    echo "[INFO] Found LVM patch in /usr/bin/manage_cd.sh."
+  elif [ -n "$(grep 'mme-becker.sh' /etc/mmelauncher.cfg)" ]; then
+    echo "[INFO] Found LVM patch in /etc/mmelauncher.cfg."
+  else
+    echo "[INFO] LVM patch not found !"
+  fi
 else
   echo; echo "[INFO] No navigation database found on HDD !"
 fi # navdb info
@@ -104,6 +117,8 @@ fi
 ### Get QNX system info ###
 echo; echo "[INFO] uname -a"
 uname -a
+echo; echo "[INFO] pidin info"
+pidin info
 
 if [ "${INFO_PROCESS}" = Y ]; then
   echo; echo "[INFO] Running processes (pidin -f aenA)"
@@ -148,8 +163,8 @@ if [ "$INFO_FLASH2" = Y ]; then
   xlister /mnt/persistence
   xlister /mnt/phonedb
   xlister /dev/
-  xlister /tmp/
-  xlister /HBpersistence/
+# xlister /tmp/
+# xlister /HBpersistence/
   xlister /proc/
 else
   echo; echo "[INFO] INFO_FLASH2 = N"
