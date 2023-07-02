@@ -23,7 +23,7 @@ xlister(){
 }
 
 ### Script startup ###
-xversion="v230621"
+xversion="v230701"
 showScreen ${SDLIB}/mmi3ginfo-0.png
 touch ${SDPATH}/.started
 xlogfile=${SDPATH}/mmi3ginfo-$(getTime).log
