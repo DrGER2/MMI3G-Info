@@ -253,8 +253,6 @@ if [ "$INFO_GFS" = Y ]; then
   while read -r line; do
     echo "$line" >> ${SDTMP}/filesystem.txt
   done < ${SDTMP}
-else
-  echo; echo "[INFO] INFO_GFS = N"
 fi # INFO_GFS
 
 
