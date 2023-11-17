@@ -13,18 +13,29 @@ INFO_NAV=Y
 INFO_GEMMI=N
 INFO_MEDIA=N
 INFO_SSS=N
+INFO_HW=Y
 INFO_NETWORK=N
 INFO_SYSLOG=Y
 
 ### Common functions ###
 xlister(){
-  echo; echo "[INFO] List $1 :"
-  ls -ovR $1
+  echo
+  if [ -e "$1" ]
+  then
+    echo "[INFO] List $1 ($(date)):"
+    ls -ovR $1
+  else
+    echo "[INFO] Cannot find $1 ($(date))."
+  fi
 }
 
 ### Script startup ###
-xversion="v230701"
-showScreen ${SDLIB}/mmi3ginfo-0.png
+xversion="v231116"
+case "$MUVER" in
+"MMI3GB") DRES=l;;
+"MMI3GH" | "MMI3GP") DRES=h;;
+esac
+showScreen ${SDLIB}/mmi3ginfo-0-${DRES}.png
 touch ${SDPATH}/.started
 xlogfile=${SDPATH}/mmi3ginfo-$(getTime).log
 exec > ${xlogfile} 2>&1
@@ -35,17 +46,23 @@ echo "[INFO] Start: $(date); Timestamp: $(getTime)"
 echo "[INFO] MMI3G Info Dump: mmi3ginfo3-$xversion"
 
 ### Get Train and MainUnit software version ###
-[ "$MUVER" = MMI3G ] && SWTRAIN="$(sloginfo -m 10000 -s 5 |
-  sed -n 's/^.* +++ Train //p' | sed -n 1p)"
+case "$MUVER" in
+"MMI3GB" | "MMI3GH")
+  SWTRAIN="$(sloginfo -m 10000 -s 5 |
+    sed -n 's/^.* +++ Train //p' | sed -n 1p)" ;;
+esac
 echo; echo "[INFO] MU train name: $SWTRAIN"
 MUSWVER="$(sed -n 's/^version = //p' /etc/version/MainUnit-version.txt)"
 echo "[INFO] MU software version: $MUSWVER"
 
 ### MainUnit Variant ###
-MUVAR="9308"
-[ "$MUVER" = MMI3GP ] && \
+case "$MUVER" in
+"MMI3GB") MUVAR="9304" ;;
+"MMI3GH") MUVAR="9308" ;;
+"MMI3GP")
   MUVAR="$(sed -n 's,^<VariantName>,,;s,</VariantName>$,,p' \
-           /etc/mmi3g-srv-starter.cfg)"
+           /etc/mmi3g-srv-starter.cfg)" ;;
+esac
 echo "[INFO] MU variant: $MUVAR"
 
 ### Get hwSample version ###
@@ -73,6 +90,8 @@ if [ -f "$DBINFO" ]; then
   DBDESC="$(sed -n 's/^description="//p' $DBPKG | sed 's/".*$//')"
   DBREL="$(sed -n 's/^SystemName=[^ ]* //p' $DBINFO | sed 's/".*$//')"
   echo; echo "[INFO] HDD navigation database info: $DBDESC $DBREL"
+  NAVREG="$(sed -n 's/^userflags=.*region@//p' $DBPKG | sed 's/;model.*$//')"
+  echo "[INFO] Nav database region code: ${NAVREG}"
   FSCSPEC="$(sed -n 's/^userflags=fsc@//p' $DBPKG | sed 's/;region.*$//')"
   echo "[INFO] Nav database release activation file: 000${FSCSPEC}.fsc"
   if [ -f /HBpersistence/FSC/000${FSCSPEC}.fsc ]; then
@@ -117,27 +136,27 @@ fi
 ### Get QNX system info ###
 echo; echo "[INFO] uname -a"
 uname -a
-echo; echo "[INFO] pidin info"
+echo; echo "[INFO] pidin info:"
 pidin info
 
 if [ "${INFO_PROCESS}" = Y ]; then
-  echo; echo "[INFO] Running processes (pidin -f aenA)"
+  echo; echo "[INFO] Running processes: pidin -f aenA ($(date)):"
   pidin -f aenA
 else
   echo; echo "[INFO] INFO_PROCESS = N"
 fi # INFO_PROCESS
 
 if [ "${INFO_MOUNT}" = Y ]; then
-  echo; echo "[INFO] Mounted filesystems (mount):"
+  echo; echo "[INFO] Mounted filesystems: mount ($(date)):"
   mount
 
-  echo; echo "[INFO] Free space (df -k -P):"
+  echo; echo "[INFO] Free space: df -k -P ($(date)):"
   df -k -P
 
-  echo; echo "[INFO] ls /"
+  echo; echo "[INFO] ls / ($(date)):"
   ls -o /
 
-  echo; echo "[INFO] ls /mnt"
+  echo; echo "[INFO] ls /mnt ($(date)):"
   ls -o /mnt/
 else
   echo; echo "[INFO] INFO_MOUNT = N"
@@ -189,7 +208,7 @@ if [ "$INFO_GEMMI" = Y ]; then
   xlister /mnt/img-cache
   if [ -f /mnt/img-cache/gemmi/.config/Google/GoogleEarthPlus.conf ]; then
     echo; echo "[INFO] GoogleEarthPlus.conf:"
-    cat /mnt/img-cache/gemmi/.config/Google/GoogleEarthPlus.conf ${SDVAR}/
+    cat /mnt/img-cache/gemmi/.config/Google/GoogleEarthPlus.conf
     cp -v /mnt/img-cache/gemmi/.config/Google/GoogleEarthPlus.conf ${SDVAR}/
   else
     echo; echo "[INFO] Cannot find file GoogleEarthPlus.conf"
@@ -200,8 +219,8 @@ fi # INFO_GEMMI
 fi # MMI3GP
 
 if [ "$INFO_MEDIA" = Y ]; then
-  xlister /mnt/gracenode
   xlister /mnt/mediadisk
+  xlister /mnt/gracenode
   [ "$MUVER" = MMI3GP ] && xlister /mnt/pv-cache
 else
   echo; echo "[INFO] INFO_MEDIA = N"
@@ -213,11 +232,26 @@ else
   echo; echo "[INFO] INFO_SSS = N"
 fi # INFO_SSS
 
+if [ "$INFO_HW" = Y ]; then
+  echo; echo "[INFO] PCI configuration space ($(date)):"
+  pci -v
+
+  echo
+  if [ -f /dev/shmem/bdaddr.txt ]; then
+    echo "[INFO] Bluetooth h/w address: $(cat /dev/shmem/bdaddr.txt)"
+    echo
+  else
+    echo "[INFO] Cannot find Bluetooth h/w address !"
+  fi
+else
+  echo; echo "[INFO] INFO_HW = N"
+fi # INFO_HW
+
 if [ "$INFO_NETWORK" = Y ]; then
-  echo; echo "[INFO] ifconfig -a"
+  echo; echo "[INFO] ifconfig -a ($(date)):"
   ifconfig -a
 
-  echo; echo "[INFO] netstat -n -r"
+  echo; echo "[INFO] netstat -n -r ($(date)):"
   netstat -v -n -r
 
   if [ "$MUVER" = MMI3GP ]; then
@@ -235,7 +269,7 @@ else
 fi # INFO_NETWORK
 
 if [ "$INFO_SYSLOG" = Y ]; then
-  echo; echo "[INFO] sloginfo:"
+  echo; echo "[INFO] sloginfo ($(date)):"
   sloginfo
 else
   echo; echo "[INFO] INFO_SYSLOG = N"
@@ -243,6 +277,6 @@ fi # INFO_SYSLOG
 
 ### Script cleanup ###
 echo; echo "[INFO] End: $(date); Timestamp: $(getTime)"
-showScreen ${SDLIB}/mmi3ginfo-1.png
+showScreen ${SDLIB}/mmi3ginfo-1-${DRES}.png
 rm -f ${SDPATH}/.started
 exit 0
