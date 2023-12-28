@@ -75,19 +75,30 @@ echo "[INFO] MU hwSample: $MUHWSAMPLE"
 ### Get installed HDD info from syslog and fdisk ###
 HDDINFO="$(sloginfo -m 19 -s 2 | grep 'eide_display_devices.*tid 1' |
   sed 's/^.*mdl //;s/ tid 1.*$//')"
-[ -z "$HDDINFO" ] && HDDINFO="n/a"
-echo; echo "[INFO] Installed HDD: $HDDINFO"
-HDDC="$(fdisk /dev/hd0 query -T)"
-echo "[INFO] HDD reported cylinders: $HDDC"
-HDDH="$(fdisk /dev/hd0 info | sed -n 's,^    Heads            : ,,p')"
-HDDS="$(fdisk /dev/hd0 info | sed -n 's,^    Sectors/Track    : ,,p')"
-echo "[INFO] HDD capacity (512 byte sectors): $(($HDDC * $HDDH * $HDDS))"
-echo "[INFO] HDD partition table:"
-fdisk /dev/hd0 show
+echo
+if [ -z "$HDDINFO" ]
+then
+  echo "[INFO] No HDD reported by eide_display_devices."
+else
+  if [ -e /dev/hd0 ]
+  then
+    echo "[INFO] Installed HDD: $HDDINFO"
+    HDDC="$(fdisk /dev/hd0 query -T)"
+    echo "[INFO] HDD reported cylinders: $HDDC"
+    HDDH="$(fdisk /dev/hd0 info | sed -n 's,^    Heads            : ,,p')"
+    HDDS="$(fdisk /dev/hd0 info | sed -n 's,^    Sectors/Track    : ,,p')"
+    echo "[INFO] HDD capacity (512 byte sectors): $(($HDDC * $HDDH * $HDDS))"
+    echo "[INFO] HDD partition table:"
+    fdisk /dev/hd0 show
+  else
+    echo "[INFO] Cannot find device /dev/hd0."
+  fi
+fi # HDDINFO
 
 ### Get navdb info ###
 DBINFO=/mnt/nav/db/DBInfo.txt
-if [ -f "$DBINFO" ]; then
+if [ -f "$DBINFO" ]
+then
   DBPKG="$(ls /mnt/nav/db/pkgdb/*.pkg | sed -n 1p)"
   DBDESC="$(sed -n 's/^description="//p' $DBPKG | sed 's/".*$//')"
   DBREL="$(sed -n 's/^SystemName=[^ ]* //p' $DBINFO | sed 's/".*$//')"
@@ -96,20 +107,24 @@ if [ -f "$DBINFO" ]; then
   echo "[INFO] Nav database region code: ${NAVREG}"
   FSCSPEC="$(sed -n 's/^userflags=fsc@//p' $DBPKG | sed 's/;region.*$//')"
   echo "[INFO] Nav database release activation file: 000${FSCSPEC}.fsc"
-  if [ -f /HBpersistence/FSC/000${FSCSPEC}.fsc ]; then
+  if [ -f /HBpersistence/FSC/000${FSCSPEC}.fsc ]
+  then
     echo "[INFO] Found nav database release FSC file."
   else
     echo "[INFO] Nav database release FSC file not found !"
   fi # FSCSPEC
 
-  if [ -n "$(pidin -f an | grep vdev-logvolmgr)" ]; then
+  if [ -n "$(pidin -f an | grep vdev-logvolmgr)" ]
+  then
     echo "[INFO] H-B navdb activation: enabled !"
   else
     echo "[INFO] H-B navdb activation: disabled."
   fi
-  if [ -n "$(grep 'acios_db.ini' /usr/bin/manage_cd.sh)" ]; then
+  if [ -n "$(grep 'acios_db.ini' /usr/bin/manage_cd.sh)" ]
+  then
     echo "[INFO] Found LVM patch in /usr/bin/manage_cd.sh."
-  elif [ -n "$(grep 'mme-becker.sh' /etc/mmelauncher.cfg)" ]; then
+  elif [ -n "$(grep 'mme-becker.sh' /etc/mmelauncher.cfg)" ]
+  then
     echo "[INFO] Found LVM patch in /etc/mmelauncher.cfg."
   else
     echo "[INFO] LVM patch not found !"
@@ -120,7 +135,8 @@ fi # navdb info
 
 ### Get Gracenote info ###
 GNDBF=/mnt/gracenode/db/gracenote.txt
-if [ -f "$GNDBF" ]; then
+if [ -f "$GNDBF" ]
+then
   GNPN="$(sed -n 's/^PartNumber=//p' $GNDBF | sed 's/
 $//')"
   echo; echo "[INFO] Gracenote CD-Database part number: $GNPN"
@@ -132,7 +148,8 @@ else
 fi # gracenote info
 
 ### 3GP HMI Info ###
-if [ "$MUVER" = MMI3GP ]; then
+if [ "$MUVER" = MMI3GP ]
+then
   echo; echo "[INFO] HMI type: $(cat /etc/hmi_type.txt | sed 's/"//g')"
   echo "[INFO] HMI region: $(cat /etc/hmi_country.txt | sed 's/"//g')"
 fi
@@ -143,14 +160,16 @@ uname -a
 echo; echo "[INFO] pidin info:"
 pidin info
 
-if [ "${INFO_PROCESS}" = Y ]; then
+if [ "${INFO_PROCESS}" = Y ]
+then
   echo; echo "[INFO] Running processes: pidin -f aenA ($(date)):"
   pidin -f aenA
 else
   echo; echo "[INFO] INFO_PROCESS = N"
 fi # INFO_PROCESS
 
-if [ "${INFO_MOUNT}" = Y ]; then
+if [ "${INFO_MOUNT}" = Y ]
+then
   echo; echo "[INFO] Mounted filesystems: mount ($(date)):"
   mount
 
@@ -166,7 +185,8 @@ else
   echo; echo "[INFO] INFO_MOUNT = N"
 fi # INFO_MOUNT
 
-if [ "$INFO_FLASH" = Y ]; then
+if [ "$INFO_FLASH" = Y ]
+then
   xlister /mnt/ifs-root
   xlister /mnt/efs-system
   xlister /bin/
@@ -178,7 +198,8 @@ else
   echo; echo "[INFO] INFO_FLASH = N"
 fi # INFO_FLASH
 
-if [ "$INFO_FLASH2" = Y ]; then
+if [ "$INFO_FLASH2" = Y ]
+then
   xlister /mnt/efs-persist
   xlister /mnt/efs-extended
   xlister /mnt/hmisql
@@ -193,10 +214,12 @@ else
   echo; echo "[INFO] INFO_FLASH2 = N"
 fi # INFO_FLASH2
 
-if [ "$INFO_NAV" = Y ]; then
+if [ "$INFO_NAV" = Y ]
+then
   xlister /mnt/nav
   cp -v /mnt/efs-persist/FSC/*.fsc ${SDVAR}/
-  if [ -f /mnt/efs-persist/navi/db/acios_db.ini ]; then
+  if [ -f /mnt/efs-persist/navi/db/acios_db.ini ]
+  then
     echo; echo "[INFO] acios_db.ini:"
     cat /mnt/efs-persist/navi/db/acios_db.ini
     cp -v /mnt/efs-persist/navi/db/acios_db.ini ${SDVAR}/
@@ -207,10 +230,13 @@ else
   echo; echo "[INFO] INFO_NAV = N"
 fi # INFO_NAV
 
-if [ "$MUVER" = MMI3GP ]; then
-if [ "$INFO_GEMMI" = Y ]; then
+if [ "$MUVER" = MMI3GP ]
+then
+if [ "$INFO_GEMMI" = Y ]
+then
   xlister /mnt/img-cache
-  if [ -f /mnt/img-cache/gemmi/.config/Google/GoogleEarthPlus.conf ]; then
+  if [ -f /mnt/img-cache/gemmi/.config/Google/GoogleEarthPlus.conf ]
+   then
     echo; echo "[INFO] GoogleEarthPlus.conf:"
     cat /mnt/img-cache/gemmi/.config/Google/GoogleEarthPlus.conf
     cp -v /mnt/img-cache/gemmi/.config/Google/GoogleEarthPlus.conf ${SDVAR}/
@@ -222,7 +248,8 @@ else
 fi # INFO_GEMMI
 fi # MMI3GP
 
-if [ "$INFO_MEDIA" = Y ]; then
+if [ "$INFO_MEDIA" = Y ]
+then
   xlister /mnt/mediadisk
   xlister /mnt/gracenode
   [ "$MUVER" = MMI3GP ] && xlister /mnt/pv-cache
@@ -230,18 +257,21 @@ else
   echo; echo "[INFO] INFO_MEDIA = N"
 fi # INFO_MEDIA
 
-if [ "$INFO_SSS" = Y ]; then
+if [ "$INFO_SSS" = Y ]
+then
   xlister /mnt/sss
 else
   echo; echo "[INFO] INFO_SSS = N"
 fi # INFO_SSS
 
-if [ "$INFO_HW" = Y ]; then
+if [ "$INFO_HW" = Y ]
+then
   echo; echo "[INFO] PCI configuration space ($(date)):"
   pci -v
 
   echo
-  if [ -f /dev/shmem/bdaddr.txt ]; then
+  if [ -f /dev/shmem/bdaddr.txt ]
+  then
     echo "[INFO] Bluetooth h/w address: $(cat /dev/shmem/bdaddr.txt)"
     echo
   else
@@ -251,14 +281,16 @@ else
   echo; echo "[INFO] INFO_HW = N"
 fi # INFO_HW
 
-if [ "$INFO_NETWORK" = Y ]; then
+if [ "$INFO_NETWORK" = Y ]
+then
   echo; echo "[INFO] ifconfig -a ($(date)):"
   ifconfig -a
 
   echo; echo "[INFO] netstat -n -r ($(date)):"
   netstat -v -n -r
 
-  if [ "$MUVER" = MMI3GP ]; then
+  if [ "$MUVER" = MMI3GP ]
+  then
     echo; echo "[INFO] sysctl net.inet.ip.forwarding"
     sysctl net.inet.ip.forwarding
 
@@ -272,7 +304,8 @@ else
   echo; echo "[INFO] INFO_NETWORK = N"
 fi # INFO_NETWORK
 
-if [ "$INFO_SYSLOG" = Y ]; then
+if [ "$INFO_SYSLOG" = Y ]
+then
   echo; echo "[INFO] sloginfo ($(date)):"
   sloginfo
 else
