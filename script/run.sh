@@ -97,16 +97,14 @@ fi # HDDINFO
 case "$MUVER" in
 MMI3GB)
   # We are MMI3GB, now to find the navdb ...
-  if [ -e /fs/cd0/pkgdb ]
-  then
-    NAVDBP=/fs/cd0
-  elif [ -e /fs/sd0/pkgdb ]
+  if [ -e /fs/sd0/pkgdb ]
   then
     NAVDBP=/fs/sd0
   elif [ -e /fs/sd1/pkgdb ]
   then
     NAVDBP=/fs/sd1
   else
+    NAVDBP=/fs/cd0
   fi ;;
 MMI3GH | MMI3GP)
   # We are MMI3GH or MMI3GP
