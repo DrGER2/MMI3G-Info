@@ -30,11 +30,11 @@ xlister(){
 }
 
 ### Script startup ###
-xversion="v231116"
+xversion="v231230"
 case "$MUVER" in
-"MMI3GB") DRES=l;;
-"MMI3GH" | "MMI3GP") DRES=h;;
-esac
+MMI3GB) DRES=l;;
+MMI3GH | MMI3GP) DRES=h;;
+esac # MUVER-DRES
 showScreen ${SDLIB}/mmi3ginfo-0-${DRES}.png
 touch ${SDPATH}/.started
 xlogfile=${SDPATH}/mmi3ginfo-$(getTime).log
@@ -47,22 +47,22 @@ echo "[INFO] MMI3G Info Dump: mmi3ginfo3-$xversion"
 
 ### Get Train and MainUnit software version ###
 case "$MUVER" in
-"MMI3GB" | "MMI3GH")
+MMI3GB | MMI3GH)
   SWTRAIN="$(sloginfo -m 10000 -s 5 |
     sed -n 's/^.* +++ Train //p' | sed -n 1p)" ;;
-esac
+esac # MUVER-SWTRAIN
 echo; echo "[INFO] MU train name: $SWTRAIN"
 MUSWVER="$(sed -n 's/^version = //p' /etc/version/MainUnit-version.txt)"
 echo "[INFO] MU software version: $MUSWVER"
 
 ### MainUnit Variant ###
 case "$MUVER" in
-"MMI3GB") MUVAR="9304" ;;
-"MMI3GH") MUVAR="9308" ;;
-"MMI3GP")
+MMI3GB) MUVAR="9304" ;;
+MMI3GH) MUVAR="9308" ;;
+MMI3GP)
   MUVAR="$(sed -n 's,^<VariantName>,,;s,</VariantName>$,,p' \
-           /etc/mmi3g-srv-starter.cfg)" ;;
-esac
+         /etc/mmi3g-srv-starter.cfg)" ;;
+esac # MUVER-MUVAR
 echo "[INFO] MU variant: $MUVAR"
 
 ### Get hwSample version ###
@@ -94,13 +94,31 @@ else
 fi # HDDINFO
 
 ### Get navdb info ###
-DBINFO=/mnt/nav/db/DBInfo.txt
+case "$MUVER" in
+MMI3GB)
+  # We are MMI3GB, now to find the navdb ...
+  if [ -e /fs/cd0/pkgdb ]
+  then
+    NAVDBP=/fs/cd0
+  elif [ -e /fs/sd0/pkgdb ]
+  then
+    NAVDBP=/fs/sd0
+  elif [ -e /fs/sd1/pkgdb ]
+  then
+    NAVDBP=/fs/sd1
+  else
+  fi ;;
+MMI3GH | MMI3GP)
+  # We are MMI3GH or MMI3GP
+  NAVDBP=/mnt/nav/db ;;
+esac # MUVER-NAVDBP
+DBINFO=${NAVDBP}/DBInfo.txt
 if [ -f "$DBINFO" ]
 then
-  DBPKG="$(ls /mnt/nav/db/pkgdb/*.pkg | sed -n 1p)"
+  DBPKG="$(ls ${NAVDBP}/pkgdb/*.pkg | sed -n 1p)"
   DBDESC="$(sed -n 's/^description="//p' $DBPKG | sed 's/".*$//')"
   DBREL="$(sed -n 's/^SystemName=[^ ]* //p' $DBINFO | sed 's/".*$//')"
-  echo; echo "[INFO] HDD navigation database info: $DBDESC $DBREL"
+  echo; echo "[INFO] Installed navigation database info: $DBDESC $DBREL"
   NAVREG="$(sed -n 's/^userflags=.*region@//p' $DBPKG | sed 's/;model.*$//')"
   echo "[INFO] Nav database region code: ${NAVREG}"
   FSCSPEC="$(sed -n 's/^userflags=fsc@//p' $DBPKG | sed 's/;region.*$//')"
@@ -212,7 +230,25 @@ fi # INFO_FLASH2
 
 if [ "$INFO_NAV" = Y ]
 then
-  xlister /mnt/nav
+  if [ -e /mnt/nav ]
+  then
+    # High or Plus
+    xlister /mnt/nav
+  else
+    # Basic
+    if [ -e /fs/cd0/pkgdb ]
+    then
+      xlister /fs/cd0
+    elif [ -e /fs/sd0/pkgdb ]
+    then
+      xlister /fs/sd0
+    elif [ -e /fs/sd1/pkgdb ]
+    then
+      xlister /fs/sd1
+    else
+      echo; echo "[INFO] Cannot find installed nav database."
+    fi
+  fi
   cp -v /mnt/efs-persist/FSC/*.fsc ${SDVAR}/
   if [ -f /mnt/efs-persist/navi/db/acios_db.ini ]
   then
