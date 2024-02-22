@@ -30,7 +30,7 @@ xlister(){
 }
 
 ### Script startup ###
-xversion="v231230"
+xversion="v240221"
 case "$MUVER" in
 MMI3GB) DRES=l;;
 MMI3GH | MMI3GP) DRES=h;;
@@ -67,7 +67,7 @@ echo "[INFO] MU variant: $MUVAR"
 
 ### Get hwSample version ###
 MUHWSAMPLE="n/a"
-[ -f /etc/hwSample ] && MUHWSAMPLE="$(cat /etc/hwSample)"
+[ -e /etc/hwSample ] && MUHWSAMPLE="$(cat /etc/hwSample)"
 echo "[INFO] MU hwSample: $MUHWSAMPLE"
 
 ### Get installed HDD info from syslog and fdisk ###
@@ -111,22 +111,44 @@ MMI3GH | MMI3GP)
   NAVDBP=/mnt/nav/db ;;
 esac # MUVER-NAVDBP
 DBINFO=${NAVDBP}/DBInfo.txt
-if [ -f "$DBINFO" ]
+if [ -e "$DBINFO" ]
 then
   DBPKG="$(ls ${NAVDBP}/pkgdb/*.pkg | sed -n 1p)"
-  DBDESC="$(sed -n 's/^description="//p' $DBPKG | sed 's/".*$//')"
+  DBDSC="$(sed -n 's/^description="//p' $DBPKG | sed 's/".*$//')"
+  DBPNR="$(sed -n 's/^PartNumber=[^ ]* //p' $DBINFO | sed 's/".*$//')"
+  DBASV="$(sed -n 's/^ApplicationSoftwareVersionNumber=[^ ]* //p' $DBINFO | sed 's/".*$//')"
   DBREL="$(sed -n 's/^SystemName=[^ ]* //p' $DBINFO | sed 's/".*$//')"
-  echo; echo "[INFO] Installed navigation database info: $DBDESC $DBREL"
+  echo; echo "[INFO] Installed navigation database info: $DBDSC $DBREL"
+  echo; echo "[INFO] ON_HDD_INFO: ${DBPNR};${DBASV};${DBREL}"
+  echo; echo "[INFO] DB_VERSION_INFO: ${DBDSC}"
   NAVREG="$(sed -n 's/^userflags=.*region@//p' $DBPKG | sed 's/;model.*$//')"
   echo "[INFO] Nav database region code: ${NAVREG}"
   FSCSPEC="$(sed -n 's/^userflags=fsc@//p' $DBPKG | sed 's/;region.*$//')"
   echo "[INFO] Nav database release activation file: 000${FSCSPEC}.fsc"
-  if [ -f /HBpersistence/FSC/000${FSCSPEC}.fsc ]
+  if [ -e /HBpersistence/FSC/000${FSCSPEC}.fsc ]
   then
     echo "[INFO] Found nav database release FSC file."
   else
     echo "[INFO] Nav database release FSC file not found !"
   fi # FSCSPEC
+
+  # Report on navdb acios_db.ini file
+  ACDBFILE="/mnt/efs-persist/navi/db/acios_db.ini"
+  if [ -e $ACDBFILE ]
+  then
+    # found acios_db.ini, which one is it ?
+    if [ -n "$(grep '^#.* LVM' $ACDBFILE)" ]
+    then
+      echo; echo "[INFO] Found LVM generated acios_db.ini file"
+    elif [ -n "$(grep '^#.* mkaciosdb' $ACDBFILE)" ]
+    then
+      echo; echo "[INFO] Found mkaciosdb generated acios_db.ini file"
+    else
+      echo; echo "[INFO] Unknown acios_db.ini file found.
+    fi
+  else
+    echo; echo "[INFO] No acios_db.ini found in /HBpersistence/navi/db"
+  fi
 
   if [ -n "$(pidin -f an | grep vdev-logvolmgr)" ]
   then
@@ -134,14 +156,15 @@ then
   else
     echo "[INFO] H-B navdb activation: disabled."
   fi
+  # Look for vdev-logvolmgr terminate patch installation
   if [ -n "$(grep 'acios_db.ini' /usr/bin/manage_cd.sh)" ]
   then
-    echo "[INFO] Found LVM patch in /usr/bin/manage_cd.sh."
+    echo "[INFO] Found vdev-logvolmgr terminate patch in /usr/bin/manage_cd.sh."
   elif [ -n "$(grep 'mme-becker.sh' /etc/mmelauncher.cfg)" ]
   then
-    echo "[INFO] Found LVM patch in /etc/mmelauncher.cfg."
+    echo "[INFO] Found vdev-logvolmgr terminate patch in /etc/mmelauncher.cfg."
   else
-    echo "[INFO] LVM patch not found !"
+    echo "[INFO] vdev-logvolmgr terminate patch not found !"
   fi
 else
   echo; echo "[INFO] No navigation database found on HDD !"
@@ -149,7 +172,7 @@ fi # navdb info
 
 ### Get Gracenote info ###
 GNDBF=/mnt/gracenode/db/gracenote.txt
-if [ -f "$GNDBF" ]
+if [ -e "$GNDBF" ]
 then
   GNPN="$(sed -n 's/^PartNumber=//p' $GNDBF | sed 's/$//')"
   echo; echo "[INFO] Gracenote CD-Database part number: $GNPN"
@@ -248,7 +271,7 @@ then
     fi
   fi
   cp -v /mnt/efs-persist/FSC/*.fsc ${SDVAR}/
-  if [ -f /mnt/efs-persist/navi/db/acios_db.ini ]
+  if [ -e /mnt/efs-persist/navi/db/acios_db.ini ]
   then
     echo; echo "[INFO] acios_db.ini:"
     cat /mnt/efs-persist/navi/db/acios_db.ini
@@ -265,7 +288,7 @@ then
 if [ "$INFO_GEMMI" = Y ]
 then
   xlister /mnt/img-cache
-  if [ -f /mnt/img-cache/gemmi/.config/Google/GoogleEarthPlus.conf ]
+  if [ -e /mnt/img-cache/gemmi/.config/Google/GoogleEarthPlus.conf ]
    then
     echo; echo "[INFO] GoogleEarthPlus.conf:"
     cat /mnt/img-cache/gemmi/.config/Google/GoogleEarthPlus.conf
@@ -300,7 +323,7 @@ then
   pci -v
 
   echo
-  if [ -f /dev/shmem/bdaddr.txt ]
+  if [ -e /dev/shmem/bdaddr.txt ]
   then
     echo "[INFO] Bluetooth h/w address: $(cat /dev/shmem/bdaddr.txt)"
     echo
