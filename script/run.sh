@@ -30,7 +30,7 @@ xlister(){
 }
 
 ### Script startup ###
-xversion="v240221"
+xversion="v240225"
 case "$MUVER" in
 MMI3GB) DRES=l;;
 MMI3GH | MMI3GP) DRES=h;;
@@ -116,8 +116,8 @@ then
   DBPKG="$(ls ${NAVDBP}/pkgdb/*.pkg | sed -n 1p)"
   DBDSC="$(sed -n 's/^description="//p' $DBPKG | sed 's/".*$//')"
   DBPNR="$(sed -n 's/^PartNumber=[^ ]* //p' $DBINFO | sed 's/".*$//')"
-  DBASV="$(sed -n 's/^ApplicationSoftwareVersionNumber=[^ ]* //p' $DBINFO | sed 's/".*$//')"
-  DBREL="$(sed -n 's/^SystemName=[^ ]* //p' $DBINFO | sed 's/".*$//')"
+  DBASV="$(sed -n 's/^ApplicationSoftwareVersionNumber="//p' $DBINFO | sed 's/".*$//')"
+  DBREL="$(sed -n 's/^SystemName="//p' $DBINFO | sed 's/".*$//')"
   echo; echo "[INFO] Installed navigation database info: $DBDSC $DBREL"
   echo; echo "[INFO] ON_HDD_INFO: ${DBPNR};${DBASV};${DBREL}"
   echo; echo "[INFO] DB_VERSION_INFO: ${DBDSC}"
@@ -144,7 +144,7 @@ then
     then
       echo; echo "[INFO] Found mkaciosdb generated acios_db.ini file"
     else
-      echo; echo "[INFO] Unknown acios_db.ini file found.
+      echo; echo "[INFO] Unknown acios_db.ini file found."
     fi
   else
     echo; echo "[INFO] No acios_db.ini found in /HBpersistence/navi/db"
