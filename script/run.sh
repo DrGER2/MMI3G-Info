@@ -30,12 +30,12 @@ xlister(){
 }
 
 ### Script startup ###
-xversion="v240225"
+xversion="v240418"
 case "$MUVER" in
 MMI3GB) DRES=l;;
 MMI3GH | MMI3GP) DRES=h;;
 esac # MUVER-DRES
-showScreen ${SDLIB}/mmi3ginfo-0-${DRES}.png
+showScreen ${SDLIB}/mmi3ginfo-${DRES}-0.png
 touch ${SDPATH}/.started
 xlogfile=${SDPATH}/mmi3ginfo-$(getTime).log
 exec > ${xlogfile} 2>&1
@@ -115,7 +115,7 @@ if [ -e "$DBINFO" ]
 then
   DBPKG="$(ls ${NAVDBP}/pkgdb/*.pkg | sed -n 1p)"
   DBDSC="$(sed -n 's/^description="//p' $DBPKG | sed 's/".*$//')"
-  DBPNR="$(sed -n 's/^PartNumber=[^ ]* //p' $DBINFO | sed 's/".*$//')"
+  DBPNR="$(sed -n 's/^PartNumber="//p' $DBINFO | sed 's/".*$//')"
   DBASV="$(sed -n 's/^ApplicationSoftwareVersionNumber="//p' $DBINFO | sed 's/".*$//')"
   DBREL="$(sed -n 's/^SystemName="//p' $DBINFO | sed 's/".*$//')"
   echo; echo "[INFO] Installed navigation database info: $DBDSC $DBREL"
@@ -367,6 +367,6 @@ fi # INFO_SYSLOG
 
 ### Script cleanup ###
 echo; echo "[INFO] End: $(date); Timestamp: $(getTime)"
-showScreen ${SDLIB}/mmi3ginfo-1-${DRES}.png
+showScreen ${SDLIB}/mmi3ginfo-${DRES}-1.png
 rm -f ${SDPATH}/.started
 exit 0
