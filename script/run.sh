@@ -10,8 +10,8 @@ INFO_MOUNT=Y
 INFO_FLASH=Y
 INFO_FLASH2=Y
 INFO_NAV=Y
-INFO_GEMMI=N
-INFO_MEDIA=N
+INFO_GEMMI=Y
+INFO_MEDIA=Y
 INFO_SSS=N
 INFO_HW=Y
 INFO_NETWORK=N
@@ -121,8 +121,39 @@ then
   echo; echo "[INFO] Installed navigation database info: $DBDSC $DBREL"
   echo; echo "[INFO] ON_HDD_INFO: ${DBPNR};${DBASV};${DBREL}"
   echo; echo "[INFO] DB_VERSION_INFO: ${DBDSC}"
+
+  # 20260102 drger; Extract navdb release info from LIT database file
+  xgetdbfname(){
+    sed -n 'H; /^\[file\]/h; ${g;p;}' $1 | sed -n 's/^name=//p' | sed 's/$//'
+  }
+
+  DBREG="$(echo $DBPKG | sed 's/^\([^_]*_\)\{1\}\([^_]*\)_.*/\2/')"
+  case $MUVER in
+  MMI3GB)
+    xlitpkg=LIT ;;
+  MMI3GH)
+    if [ "$DBREG" = "ECE" ]
+    then
+      xlitpkg=LIT
+    else
+      xlitpkg=LIT_$DBREG
+    fi ;;
+  MMI3GP)
+    if [ "$DBREG" = "ECE" ]
+    then
+      xlitpkg=LIT3GP
+    else
+      xlitpkg=LIT3GP_$DBREG
+    fi ;;
+  esac
+  xlitdbname="$(xgetdbfname ${NAVDBP}/pkgdb/${xlitpkg}/${xlitpkg}.conf)"
+  xlitdbfile="${NAVDBP}/pkgdb/${xlitpkg}/${xlitdbname}"
+  print "\n[INFO] Navigation database release information:\n"
+  strings ${xlitdbfile} | sed -n '1,10p;11q' |
+    sed -n '/ MMI3G/,/rights reserved/p'
+
   NAVREG="$(sed -n 's/^userflags=.*region@//p' $DBPKG | sed 's/;model.*$//')"
-  echo "[INFO] Nav database region code: ${NAVREG}"
+  echo; echo "[INFO] Nav database region code: ${NAVREG}"
   FSCSPEC="$(sed -n 's/^userflags=fsc@//p' $DBPKG | sed 's/;region.*$//')"
   echo "[INFO] Nav database release activation file: 000${FSCSPEC}.fsc"
   if [ -e /HBpersistence/FSC/000${FSCSPEC}.fsc ]
