@@ -1,4 +1,4 @@
-#!/bin/ksh
+!/bin/ksh
 
 # 20230111 drger; MMI3G Information dump v3
 # 20211129 drger; MMI3G Information dump v2
@@ -19,23 +19,34 @@ INFO_SYSLOG=Y
 
 ### Common functions ###
 xlister(){
-  echo
-  if [ -e "$1" ]
-  then
-    echo "[INFO] List $1 ($(date)):"
-    ls -ovR $1
-  else
-    echo "[INFO] Cannot find $1 ($(date))."
-  fi
+ echo
+ if [ -e "$1" ]
+ then
+  echo "[INFO] List $1 ($(date)):"
+  ls -ovR $1
+ else
+  echo "[INFO] Cannot find $1 ($(date))."
+ fi
 }
 
 ### Script startup ###
-xversion="v240418"
+xversion="v260103"
+#
+SED=sed
+SHOWSCREEN=${SDPATH}/bin/showScreen
+STRINGS=${SDPATH}/bin/strings
 case "$MUVER" in
-MMI3GB) DRES=l;;
-MMI3GH | MMI3GP) DRES=h;;
-esac # MUVER-DRES
-showScreen ${SDLIB}/mmi3ginfo-${DRES}-0.png
+MMI3GB)
+ SED=${SDPATH}/bin/sed
+ DRES=l ;;
+MMI3GH)
+ SED=${SDPATH}/bin/sed
+ DRES=h ;;
+MMI3GP)
+ DRES=h ;;
+esac # MUVER
+#
+$SHOWSCREEN ${SDLIB}/mmi3ginfo-${DRES}-0.png
 touch ${SDPATH}/.started
 xlogfile=${SDPATH}/mmi3ginfo-$(getTime).log
 exec > ${xlogfile} 2>&1
@@ -48,8 +59,8 @@ echo "[INFO] MMI3G Info Dump: mmi3ginfo3-$xversion"
 ### Get Train and MainUnit software version ###
 case "$MUVER" in
 MMI3GB | MMI3GH)
-  SWTRAIN="$(sloginfo -m 10000 -s 5 |
-    sed -n 's/^.* +++ Train //p' | sed -n 1p)" ;;
+ SWTRAIN="$(sloginfo -m 10000 -s 5 |
+  $SED -n 's/^.* +++ Train //p' | $SED -n 1p)" ;;
 esac # MUVER-SWTRAIN
 echo; echo "[INFO] MU train name: $SWTRAIN"
 MUSWVER="$(sed -n 's/^version = //p' /etc/version/MainUnit-version.txt)"
@@ -60,8 +71,8 @@ case "$MUVER" in
 MMI3GB) MUVAR="9304" ;;
 MMI3GH) MUVAR="9308" ;;
 MMI3GP)
-  MUVAR="$(sed -n 's,^<VariantName>,,;s,</VariantName>$,,p' \
-         /etc/mmi3g-srv-starter.cfg)" ;;
+ MUVAR="$(sed -n 's,^<VariantName>,,;s,</VariantName>$,,p' \
+  /etc/mmi3g-srv-starter.cfg)" ;;
 esac # MUVER-MUVAR
 echo "[INFO] MU variant: $MUVAR"
 
@@ -72,152 +83,155 @@ echo "[INFO] MU hwSample: $MUHWSAMPLE"
 
 ### Get installed HDD info from syslog and fdisk ###
 HDDINFO="$(sloginfo -m 19 -s 2 | grep 'eide_display_devices.*tid 1' |
-  sed 's/^.*mdl //;s/ tid 1.*$//')"
+ $SED 's/^.*mdl //;s/ tid 1.*$//')"
 echo
 if [ -z "$HDDINFO" ]
 then
-  echo "[INFO] No HDD reported by eide_display_devices."
+ echo "[INFO] No HDD reported by eide_display_devices."
 else
-  if [ -e /dev/hd0 ]
-  then
-    echo "[INFO] Installed HDD: $HDDINFO"
-    HDDC="$(fdisk /dev/hd0 query -T)"
-    echo "[INFO] HDD reported cylinders: $HDDC"
-    HDDH="$(fdisk /dev/hd0 info | sed -n 's,^    Heads            : ,,p')"
-    HDDS="$(fdisk /dev/hd0 info | sed -n 's,^    Sectors/Track    : ,,p')"
-    echo "[INFO] HDD capacity (512 byte sectors): $(($HDDC * $HDDH * $HDDS))"
-    echo "[INFO] HDD partition table:"
-    fdisk /dev/hd0 show
-  else
-    echo "[INFO] Cannot find device /dev/hd0."
-  fi
+ if [ -e /dev/hd0 ]
+ then
+  echo "[INFO] Installed HDD: $HDDINFO"
+  HDDC="$(fdisk /dev/hd0 query -T)"
+  echo "[INFO] HDD reported cylinders: $HDDC"
+  HDDH="$(fdisk /dev/hd0 info | $SED -n 's,^    Heads            : ,,p')"
+  HDDS="$(fdisk /dev/hd0 info | $SED -n 's,^    Sectors/Track    : ,,p')"
+  echo "[INFO] HDD capacity (512 byte sectors): $(($HDDC * $HDDH * $HDDS))"
+  echo "[INFO] HDD partition table:"
+  fdisk /dev/hd0 show
+ else
+  echo "[INFO] Cannot find device /dev/hd0."
+ fi
 fi # HDDINFO
 
 ### Get navdb info ###
 case "$MUVER" in
 MMI3GB)
-  # We are MMI3GB, now to find the navdb ...
-  if [ -e /fs/sd0/pkgdb ]
-  then
-    NAVDBP=/fs/sd0
-  elif [ -e /fs/sd1/pkgdb ]
-  then
-    NAVDBP=/fs/sd1
-  else
-    NAVDBP=/fs/cd0
-  fi ;;
+ # We are MMI3GB, now to find the navdb ...
+ if [ -e /fs/sd0/pkgdb ]
+ then
+  NAVDBP=/fs/sd0
+ elif [ -e /fs/sd1/pkgdb ]
+ then
+  NAVDBP=/fs/sd1
+ else
+  NAVDBP=/fs/cd0
+ fi ;;
 MMI3GH | MMI3GP)
-  # We are MMI3GH or MMI3GP
-  NAVDBP=/mnt/nav/db ;;
+ # We are MMI3GH or MMI3GP
+ NAVDBP=/mnt/nav/db ;;
 esac # MUVER-NAVDBP
 DBINFO=${NAVDBP}/DBInfo.txt
 if [ -e "$DBINFO" ]
 then
-  DBPKG="$(ls ${NAVDBP}/pkgdb/*.pkg | sed -n 1p)"
-  DBDSC="$(sed -n 's/^description="//p' $DBPKG | sed 's/".*$//')"
-  DBPNR="$(sed -n 's/^PartNumber="//p' $DBINFO | sed 's/".*$//')"
-  DBASV="$(sed -n 's/^ApplicationSoftwareVersionNumber="//p' $DBINFO | sed 's/".*$//')"
-  DBREL="$(sed -n 's/^SystemName="//p' $DBINFO | sed 's/".*$//')"
-  echo; echo "[INFO] Installed navigation database info: $DBDSC $DBREL"
-  echo; echo "[INFO] ON_HDD_INFO: ${DBPNR};${DBASV};${DBREL}"
-  echo; echo "[INFO] DB_VERSION_INFO: ${DBDSC}"
+ DBPKG="$(ls ${NAVDBP}/pkgdb/*.pkg | $SED -n 1p)"
+ DBDSC="$(sed -n 's/^description="//p' $DBPKG | $SED 's/".*$//')"
+ DBPNR="$(sed -n 's/^PartNumber="//p' $DBINFO | $SED 's/".*$//')"
+ DBASV="$(sed -n 's/^ApplicationSoftwareVersionNumber="//p' $DBINFO |
+  $SED 's/".*$//')"
+ DBREL="$(sed -n 's/^SystemName="//p' $DBINFO | $SED 's/".*$//')"
+ echo; echo "[INFO] Installed navigation database info: $DBDSC $DBREL"
+ echo; echo "[INFO] ON_HDD_INFO: ${DBPNR};${DBASV};${DBREL}"
+ echo; echo "[INFO] DB_VERSION_INFO: ${DBDSC}"
 
-  # 20260102 drger; Extract navdb release info from LIT database file
-  xgetdbfname(){
-    sed -n 'H; /^\[file\]/h; ${g;p;}' $1 | sed -n 's/^name=//p' | sed 's/$//'
-  }
-
-  DBREG="$(echo $DBPKG | sed 's/^\([^_]*_\)\{1\}\([^_]*\)_.*/\2/')"
-  case $MUVER in
-  MMI3GB)
-    xlitpkg=LIT ;;
-  MMI3GH)
-    if [ "$DBREG" = "ECE" ]
-    then
-      xlitpkg=LIT
-    else
-      xlitpkg=LIT_$DBREG
-    fi ;;
-  MMI3GP)
-    if [ "$DBREG" = "ECE" ]
-    then
-      xlitpkg=LIT3GP
-    else
-      xlitpkg=LIT3GP_$DBREG
-    fi ;;
-  esac
-  xlitdbname="$(xgetdbfname ${NAVDBP}/pkgdb/${xlitpkg}/${xlitpkg}.conf)"
-  xlitdbfile="${NAVDBP}/pkgdb/${xlitpkg}/${xlitdbname}"
-  print "\n[INFO] Navigation database release information:\n"
-  strings ${xlitdbfile} | sed -n '1,10p;11q' |
-    sed -n '/ MMI3G/,/rights reserved/p'
-
-  NAVREG="$(sed -n 's/^userflags=.*region@//p' $DBPKG | sed 's/;model.*$//')"
-  echo; echo "[INFO] Nav database region code: ${NAVREG}"
-  FSCSPEC="$(sed -n 's/^userflags=fsc@//p' $DBPKG | sed 's/;region.*$//')"
-  echo "[INFO] Nav database release activation file: 000${FSCSPEC}.fsc"
-  if [ -e /HBpersistence/FSC/000${FSCSPEC}.fsc ]
+ # 20260102 drger; Extract navdb release info from LIT database file
+ xgetdbfname(){
+  $SED -n 'H; /^\[file\]/h; ${g;p;}' $1 | $SED -n 's/^name=//p' |
+   $SED 's/$//'
+ }
+ DBREG="$(echo $DBPKG | $SED 's/^\([^_]*_\)\{1\}\([^_]*\)_.*/\2/')"
+ case $MUVER in
+ MMI3GB)
+  xlitpkg=LIT ;;
+ MMI3GH)
+  if [ "$DBREG" = "ECE" ]
   then
-    echo "[INFO] Found nav database release FSC file."
+   xlitpkg=LIT
   else
-    echo "[INFO] Nav database release FSC file not found !"
-  fi # FSCSPEC
-
-  # Report on navdb acios_db.ini file
-  ACDBFILE="/mnt/efs-persist/navi/db/acios_db.ini"
-  if [ -e $ACDBFILE ]
+   xlitpkg=LIT_$DBREG
+  fi ;;
+ MMI3GP)
+  if [ "$DBREG" = "ECE" ]
   then
-    # found acios_db.ini, which one is it ?
-    if [ -n "$(grep '^#.* LVM' $ACDBFILE)" ]
-    then
-      echo; echo "[INFO] Found LVM generated acios_db.ini file"
-    elif [ -n "$(grep '^#.* mkaciosdb' $ACDBFILE)" ]
-    then
-      echo; echo "[INFO] Found mkaciosdb generated acios_db.ini file"
-    else
-      echo; echo "[INFO] Unknown acios_db.ini file found."
-    fi
+   xlitpkg=LIT3GP
   else
-    echo; echo "[INFO] No acios_db.ini found in /HBpersistence/navi/db"
+   xlitpkg=LIT3GP_$DBREG
+  fi ;;
+ esac
+ xlitdbname="$(xgetdbfname ${NAVDBP}/pkgdb/${xlitpkg}/${xlitpkg}.conf)"
+ xlitdbfile="${NAVDBP}/pkgdb/${xlitpkg}/${xlitdbname}"
+ echo; echo "[INFO] Navigation database release information:"; echo
+ $STRINGS ${xlitdbfile} | $SED -n '1,10p;11q' |
+  $SED -n '/ MMI3G/,/rights reserved/p'
+
+ # Parse PKG file for region code and FSC file
+ NAVREG="$(sed -n 's/^userflags=.*region@//p' $DBPKG | $SED 's/;model.*$//')"
+ echo; echo "[INFO] Nav database region code: ${NAVREG}"
+ FSCSPEC="$(sed -n 's/^userflags=fsc@//p' $DBPKG | $SED 's/;region.*$//')"
+ echo "[INFO] Nav database release activation file: 000${FSCSPEC}.fsc"
+ if [ -e /HBpersistence/FSC/000${FSCSPEC}.fsc ]
+ then
+  echo "[INFO] Found nav database release FSC file."
+ else
+  echo "[INFO] Nav database release FSC file not found !"
+ fi # FSCSPEC
+
+ # Report on navdb acios_db.ini file
+ ACDBFILE="/mnt/efs-persist/navi/db/acios_db.ini"
+ if [ -e $ACDBFILE ]
+ then
+  # found acios_db.ini, which one is it ?
+  if [ -n "$(grep '^#.* LVM' $ACDBFILE)" ]
+  then
+   echo; echo "[INFO] Found LVM generated acios_db.ini file"
+  elif [ -n "$(grep '^#.* mkaciosdb' $ACDBFILE)" ]
+  then
+   echo; echo "[INFO] Found mkaciosdb generated acios_db.ini file"
+  else
+   echo; echo "[INFO] Unknown acios_db.ini file found."
   fi
+ else
+  echo; echo "[INFO] No acios_db.ini found in /HBpersistence/navi/db"
+ fi
 
-  if [ -n "$(pidin -f an | grep vdev-logvolmgr)" ]
-  then
-    echo "[INFO] H-B navdb activation: enabled !"
-  else
-    echo "[INFO] H-B navdb activation: disabled."
-  fi
-  # Look for vdev-logvolmgr terminate patch installation
-  if [ -n "$(grep 'acios_db.ini' /usr/bin/manage_cd.sh)" ]
-  then
-    echo "[INFO] Found vdev-logvolmgr terminate patch in /usr/bin/manage_cd.sh."
-  elif [ -n "$(grep 'mme-becker.sh' /etc/mmelauncher.cfg)" ]
-  then
-    echo "[INFO] Found vdev-logvolmgr terminate patch in /etc/mmelauncher.cfg."
-  else
-    echo "[INFO] vdev-logvolmgr terminate patch not found !"
-  fi
+ # Report on navdb activation
+ if [ -n "$(pidin -f an | grep vdev-logvolmgr)" ]
+ then
+  echo "[INFO] H-B navdb activation: enabled !"
+ else
+  echo "[INFO] H-B navdb activation: disabled."
+ fi
+ # Look for vdev-logvolmgr terminate patch installation
+ if [ -n "$(grep 'acios_db.ini' /usr/bin/manage_cd.sh)" ]
+ then
+  echo "[INFO] Found vdev-logvolmgr terminate patch in /usr/bin/manage_cd.sh."
+ elif [ -n "$(grep 'mme-becker.sh' /etc/mmelauncher.cfg)" ]
+ then
+  echo "[INFO] Found vdev-logvolmgr terminate patch in /etc/mmelauncher.cfg."
+ else
+  echo "[INFO] vdev-logvolmgr terminate patch not found !"
+ fi
 else
-  echo; echo "[INFO] No navigation database found on HDD !"
+ echo; echo "[INFO] No navigation database found on HDD !"
 fi # navdb info
 
 ### Get Gracenote info ###
 GNDBF=/mnt/gracenode/db/gracenote.txt
 if [ -e "$GNDBF" ]
 then
-  GNPN="$(sed -n 's/^PartNumber=//p' $GNDBF | sed 's/$//')"
-  echo; echo "[INFO] Gracenote CD-Database part number: $GNPN"
-  GNSVN="$(sed -n 's/^SoftwareVersionNumber=//p' $GNDBF | sed 's/$//')"
-  echo "[INFO] Gracenote CD-Database version: $GNSVN"
+ GNPN="$(sed -n 's/^PartNumber=//p' $GNDBF | $SED 's/$//')"
+ echo; echo "[INFO] Gracenote CD-Database part number: $GNPN"
+ GNSVN="$(sed -n 's/^SoftwareVersionNumber=//p' $GNDBF | $SED 's/$//')"
+ echo "[INFO] Gracenote CD-Database version: $GNSVN"
 else
-  echo; echo "[INFO] No Gracenote database found on HDD !"
+ echo; echo "[INFO] No Gracenote database found on HDD !"
 fi # gracenote info
 
 ### 3GP HMI Info ###
 if [ "$MUVER" = MMI3GP ]
 then
-  echo; echo "[INFO] HMI type: $(cat /etc/hmi_type.txt | sed 's/"//g')"
-  echo "[INFO] HMI region: $(cat /etc/hmi_country.txt | sed 's/"//g')"
+ echo; echo "[INFO] HMI type: $(cat /etc/hmi_type.txt | $SED 's/"//g')"
+ echo "[INFO] HMI region: $(cat /etc/hmi_country.txt | $SED 's/"//g')"
 fi
 
 ### Get QNX system info ###
@@ -228,176 +242,176 @@ pidin info
 
 if [ "${INFO_PROCESS}" = Y ]
 then
-  echo; echo "[INFO] Running processes: pidin -f aenA ($(date)):"
-  pidin -f aenA
+ echo; echo "[INFO] Running processes: pidin -f aenA ($(date)):"
+ pidin -f aenA
 else
-  echo; echo "[INFO] INFO_PROCESS = N"
+ echo; echo "[INFO] INFO_PROCESS = N"
 fi # INFO_PROCESS
 
 if [ "${INFO_MOUNT}" = Y ]
 then
-  echo; echo "[INFO] Mounted filesystems: mount ($(date)):"
-  mount
+ echo; echo "[INFO] Mounted filesystems: mount ($(date)):"
+ mount
 
-  echo; echo "[INFO] Free space: df -k -P ($(date)):"
-  df -k -P
+ echo; echo "[INFO] Free space: df -k -P ($(date)):"
+ df -k -P
 
-  echo; echo "[INFO] ls / ($(date)):"
-  ls -o /
+ echo; echo "[INFO] ls / ($(date)):"
+ ls -o /
 
-  echo; echo "[INFO] ls /mnt ($(date)):"
-  ls -o /mnt/
+ echo; echo "[INFO] ls /mnt ($(date)):"
+ ls -o /mnt/
 else
-  echo; echo "[INFO] INFO_MOUNT = N"
+ echo; echo "[INFO] INFO_MOUNT = N"
 fi # INFO_MOUNT
 
 if [ "$INFO_FLASH" = Y ]
 then
-  xlister /mnt/ifs-root
-  xlister /mnt/efs-system
-  xlister /bin/
-  xlister /etc/
-  xlister /lib/
-  xlister /sbin/
-  xlister /usr/
+ xlister /mnt/ifs-root
+ xlister /mnt/efs-system
+ xlister /bin/
+ xlister /etc/
+ xlister /lib/
+ xlister /sbin/
+ xlister /usr/
 else
-  echo; echo "[INFO] INFO_FLASH = N"
+ echo; echo "[INFO] INFO_FLASH = N"
 fi # INFO_FLASH
 
 if [ "$INFO_FLASH2" = Y ]
 then
-  xlister /mnt/efs-persist
-  xlister /mnt/efs-extended
-  xlister /mnt/hmisql
-  xlister /mnt/mmebackup1
-  xlister /mnt/persistence
-  xlister /mnt/phonedb
-  xlister /dev/
+ xlister /mnt/efs-persist
+ xlister /mnt/efs-extended
+ xlister /mnt/hmisql
+ xlister /mnt/mmebackup1
+ xlister /mnt/persistence
+ xlister /mnt/phonedb
+ xlister /dev/
 # xlister /tmp/
 # xlister /HBpersistence/
-  xlister /proc/
+ xlister /proc/
 else
-  echo; echo "[INFO] INFO_FLASH2 = N"
+ echo; echo "[INFO] INFO_FLASH2 = N"
 fi # INFO_FLASH2
 
 if [ "$INFO_NAV" = Y ]
 then
-  if [ -e /mnt/nav ]
+ if [ -e /mnt/nav ]
+ then
+  # High or Plus
+  xlister /mnt/nav
+ else
+  # Basic
+  if [ -e /fs/cd0/pkgdb ]
   then
-    # High or Plus
-    xlister /mnt/nav
-  else
-    # Basic
-    if [ -e /fs/cd0/pkgdb ]
-    then
-      xlister /fs/cd0
-    elif [ -e /fs/sd0/pkgdb ]
-    then
-      xlister /fs/sd0
-    elif [ -e /fs/sd1/pkgdb ]
-    then
-      xlister /fs/sd1
-    else
-      echo; echo "[INFO] Cannot find installed nav database."
-    fi
-  fi
-  cp -v /mnt/efs-persist/FSC/*.fsc ${SDVAR}/
-  if [ -e /mnt/efs-persist/navi/db/acios_db.ini ]
+   xlister /fs/cd0
+  elif [ -e /fs/sd0/pkgdb ]
   then
-    echo; echo "[INFO] acios_db.ini:"
-    cat /mnt/efs-persist/navi/db/acios_db.ini
-    cp -v /mnt/efs-persist/navi/db/acios_db.ini ${SDVAR}/
+   xlister /fs/sd0
+  elif [ -e /fs/sd1/pkgdb ]
+  then
+   xlister /fs/sd1
   else
-    echo; echo "[INFO] Cannot find file acios_db.ini"
+   echo; echo "[INFO] Cannot find installed nav database."
   fi
+ fi
+ cp -v /mnt/efs-persist/FSC/*.fsc ${SDVAR}/
+ if [ -e /mnt/efs-persist/navi/db/acios_db.ini ]
+ then
+  echo; echo "[INFO] acios_db.ini:"
+  cat /mnt/efs-persist/navi/db/acios_db.ini
+  cp -v /mnt/efs-persist/navi/db/acios_db.ini ${SDVAR}/
+ else
+  echo; echo "[INFO] Cannot find file acios_db.ini"
+ fi
 else
-  echo; echo "[INFO] INFO_NAV = N"
+ echo; echo "[INFO] INFO_NAV = N"
 fi # INFO_NAV
 
 if [ "$MUVER" = MMI3GP ]
 then
 if [ "$INFO_GEMMI" = Y ]
 then
-  xlister /mnt/img-cache
-  if [ -e /mnt/img-cache/gemmi/.config/Google/GoogleEarthPlus.conf ]
-   then
-    echo; echo "[INFO] GoogleEarthPlus.conf:"
-    cat /mnt/img-cache/gemmi/.config/Google/GoogleEarthPlus.conf
-    cp -v /mnt/img-cache/gemmi/.config/Google/GoogleEarthPlus.conf ${SDVAR}/
-  else
-    echo; echo "[INFO] Cannot find file GoogleEarthPlus.conf"
-  fi
+ xlister /mnt/img-cache
+ if [ -e /mnt/img-cache/gemmi/.config/Google/GoogleEarthPlus.conf ]
+ then
+  echo; echo "[INFO] GoogleEarthPlus.conf:"
+  cat /mnt/img-cache/gemmi/.config/Google/GoogleEarthPlus.conf
+  cp -v /mnt/img-cache/gemmi/.config/Google/GoogleEarthPlus.conf ${SDVAR}/
+ else
+  echo; echo "[INFO] Cannot find file GoogleEarthPlus.conf"
+ fi
 else
-  echo; echo "[INFO] INFO_GEMMI = N"
+ echo; echo "[INFO] INFO_GEMMI = N"
 fi # INFO_GEMMI
 fi # MMI3GP
 
 if [ "$INFO_MEDIA" = Y ]
 then
-  xlister /mnt/mediadisk
-  xlister /mnt/gracenode
-  [ "$MUVER" = MMI3GP ] && xlister /mnt/pv-cache
+ xlister /mnt/mediadisk
+ xlister /mnt/gracenode
+ [ "$MUVER" = MMI3GP ] && xlister /mnt/pv-cache
 else
-  echo; echo "[INFO] INFO_MEDIA = N"
+ echo; echo "[INFO] INFO_MEDIA = N"
 fi # INFO_MEDIA
 
 if [ "$INFO_SSS" = Y ]
 then
-  xlister /mnt/sss
+ xlister /mnt/sss
 else
-  echo; echo "[INFO] INFO_SSS = N"
+ echo; echo "[INFO] INFO_SSS = N"
 fi # INFO_SSS
 
 if [ "$INFO_HW" = Y ]
 then
-  echo; echo "[INFO] PCI configuration space ($(date)):"
-  pci -v
+ echo; echo "[INFO] PCI configuration space ($(date)):"
+ pci -v
 
+ echo
+ if [ -e /dev/shmem/bdaddr.txt ]
+ then
+  echo "[INFO] Bluetooth h/w address: $(cat /dev/shmem/bdaddr.txt)"
   echo
-  if [ -e /dev/shmem/bdaddr.txt ]
-  then
-    echo "[INFO] Bluetooth h/w address: $(cat /dev/shmem/bdaddr.txt)"
-    echo
-  else
-    echo "[INFO] Cannot find Bluetooth h/w address !"
-  fi
+ else
+  echo "[INFO] Cannot find Bluetooth h/w address !"
+ fi
 else
-  echo; echo "[INFO] INFO_HW = N"
+ echo; echo "[INFO] INFO_HW = N"
 fi # INFO_HW
 
 if [ "$INFO_NETWORK" = Y ]
 then
-  echo; echo "[INFO] ifconfig -a ($(date)):"
-  ifconfig -a
+ echo; echo "[INFO] ifconfig -a ($(date)):"
+ ifconfig -a
 
-  echo; echo "[INFO] netstat -n -r ($(date)):"
-  netstat -v -n -r
+ echo; echo "[INFO] netstat -n -r ($(date)):"
+ netstat -v -n -r
 
-  if [ "$MUVER" = MMI3GP ]
-  then
-    echo; echo "[INFO] sysctl net.inet.ip.forwarding"
-    sysctl net.inet.ip.forwarding
+ if [ "$MUVER" = MMI3GP ]
+ then
+  echo; echo "[INFO] sysctl net.inet.ip.forwarding"
+  sysctl net.inet.ip.forwarding
 
-    echo; echo "[INFO] pfctl -s Interfaces"
-    pfctl -vv -s Interfaces
+  echo; echo "[INFO] pfctl -s Interfaces"
+  pfctl -vv -s Interfaces
 
-    echo; echo "[INFO] pfctl -s all"
-    pfctl -v -s all
-  fi # MMI3GP
+  echo; echo "[INFO] pfctl -s all"
+  pfctl -v -s all
+ fi # MMI3GP
 else
   echo; echo "[INFO] INFO_NETWORK = N"
 fi # INFO_NETWORK
 
 if [ "$INFO_SYSLOG" = Y ]
 then
-  echo; echo "[INFO] sloginfo ($(date)):"
-  sloginfo
+ echo; echo "[INFO] sloginfo ($(date)):"
+ sloginfo -t
 else
-  echo; echo "[INFO] INFO_SYSLOG = N"
+ echo; echo "[INFO] INFO_SYSLOG = N"
 fi # INFO_SYSLOG
 
 ### Script cleanup ###
 echo; echo "[INFO] End: $(date); Timestamp: $(getTime)"
-showScreen ${SDLIB}/mmi3ginfo-${DRES}-1.png
+$SHOWSCREEN ${SDLIB}/mmi3ginfo-${DRES}-1.png
 rm -f ${SDPATH}/.started
 exit 0
